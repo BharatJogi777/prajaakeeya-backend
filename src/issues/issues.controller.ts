@@ -18,6 +18,7 @@ import {
   ApiQuery,
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
+import { OptionalJwtAuthGuard } from "../common/guards/optional-jwt-auth.guard";
 import { IssuesService } from "./issues.service";
 import { CreateIssueDto } from "./dto/create-issue.dto";
 import { UpdateIssueDto } from "./dto/update-issue.dto";
@@ -106,7 +107,13 @@ export class IssuesController {
   }
 
   @Get()
-  @ApiOperation({ summary: "List issues for an election constituency" })
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "List public issues with optional caller-specific hand-raise state",
+    description:
+      "Public endpoint. When a valid Bearer token is supplied, each category includes isRaised for the authenticated user. Anonymous callers receive public counts only.",
+  })
   @ApiQuery({
     name: "electionId",
     required: true,
@@ -119,23 +126,16 @@ export class IssuesController {
     type: Number,
     description: "Constituency ID",
   })
-  @ApiQuery({
-    name: "userId",
-    required: false,
-    type: Number,
-    description:
-      "If passed, each category includes isRaised (true/false) for this user",
-  })
   @ApiResponse({ status: 200, description: "Issues returned" })
   list(
     @Query("electionId") electionId: string,
     @Query("constituencyId") constituencyId: string,
-    @Query("userId") userId?: string,
+    @CurrentUser() user?: AuthUser,
   ) {
     return this.service.listIssues(
       Number(electionId),
       Number(constituencyId),
-      userId ? Number(userId) : undefined,
+      user?.id,
     );
   }
 
